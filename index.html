@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qwen3.5 · Chat</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Thai:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg0:#0a0a0c; --bg1:#111114; --bg2:#18181d; --bg3:#1e1e25;
+  --line:#2a2a35; --line2:#383845;
+  --c0:#e2e2ec; --c1:#9898b0; --c2:#5a5a72;
+  --green:#00c896; --green2:rgba(0,200,150,.12);
+  --purple:#8b78f8; --purple2:rgba(139,120,248,.12);
+  --amber:#f5a623; --amber2:rgba(245,166,35,.12);
+  --red:#ff5370; --blue:#4fc3f7;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Noto Sans Thai',sans-serif;
+  background:var(--bg0); color:var(--c0);
+  height:100vh; display:flex; flex-direction:column; overflow:hidden;
+}
+
+/* ── TOPBAR ── */
+.topbar{
+  height:52px; background:var(--bg1); border-bottom:1px solid var(--line);
+  display:flex; align-items:center; padding:0 16px; gap:12px; flex-shrink:0;
+}
+.logo{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:13px;color:var(--green);letter-spacing:.08em;}
+.vdiv{width:1px;height:20px;background:var(--line2);flex-shrink:0;}
+.url-group{display:flex;align-items:center;gap:8px;}
+.url-input{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  background:var(--bg2);border:1px solid var(--line);color:var(--c0);
+  padding:5px 10px;border-radius:6px;outline:none;width:230px;transition:border-color .2s;
+}
+.url-input:focus{border-color:var(--green);}
+.conn-btn{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  background:var(--bg3);border:1px solid var(--line2);color:var(--c1);
+  padding:5px 12px;border-radius:6px;cursor:pointer;transition:all .15s;
+}
+.conn-btn:hover{border-color:var(--green);color:var(--green);}
+.status-pill{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--c2);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--c2);transition:all .3s;}
+.dot.ok{background:var(--green);box-shadow:0 0 6px var(--green);}
+.dot.err{background:var(--red);box-shadow:0 0 6px var(--red);}
+.dot.checking{background:var(--amber);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.sm-btn{
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  background:transparent;border:1px solid var(--line);color:var(--c2);
+  padding:4px 10px;border-radius:5px;cursor:pointer;transition:all .15s;
+}
+.sm-btn:hover{border-color:var(--red);color:var(--red);}
+
+/* ── BODY ── */
+.body-layout{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:256px;flex-shrink:0;background:var(--bg1);
+  border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;
+}
+.sidebar-scroll{flex:1;overflow-y:auto;padding:12px 10px;}
+.sidebar-scroll::-webkit-scrollbar{width:3px;}
+.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--line2);}
+
+.sec-head{
+  font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--c2);padding:10px 4px 6px;
+}
+.group-label{
+  font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--c2);
+  letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 4px 5px;border-bottom:1px solid var(--line);margin-bottom:5px;
+}
+
+/* Preset buttons */
+.preset-btn{
+  width:100%;background:transparent;border:1px solid transparent;
+  color:var(--c1);padding:7px 8px;border-radius:6px;cursor:pointer;
+  font-size:11px;font-family:'Noto Sans Thai',sans-serif;
+  margin-bottom:2px;transition:all .15s;
+  display:flex;align-items:center;justify-content:space-between;gap:6px;text-align:left;
+}
+.preset-btn:hover{background:var(--bg3);color:var(--c0);border-color:var(--line2);}
+.preset-btn.active{background:var(--green2);color:var(--green);border-color:rgba(0,200,150,.3);}
+.preset-name{flex:1;font-size:11px;line-height:1.3;}
+.badges{display:flex;gap:3px;flex-shrink:0;}
+.badge{font-size:8px;font-family:'JetBrains Mono',monospace;padding:1px 4px;border-radius:3px;line-height:1.4;}
+.badge.t{background:var(--amber2);color:var(--amber);}
+.badge.v{background:var(--purple2);color:var(--purple);}
+
+/* Params */
+.param-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.param-lbl{font-size:10px;color:var(--c2);font-family:'JetBrains Mono',monospace;}
+.param-val{font-size:10px;color:var(--green);font-family:'JetBrains Mono',monospace;min-width:34px;text-align:right;}
+input[type=range]{
+  -webkit-appearance:none;width:100%;height:2px;
+  background:var(--line2);border-radius:2px;outline:none;margin-bottom:12px;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:11px;height:11px;border-radius:50%;
+  background:var(--green);box-shadow:0 0 4px var(--green);cursor:pointer;
+}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.toggle-lbl{font-size:10px;font-family:'JetBrains Mono',monospace;}
+.toggle{
+  width:34px;height:18px;background:var(--line2);border-radius:9px;
+  border:none;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;
+}
+.toggle.on{background:var(--amber);}
+.toggle::after{
+  content:'';position:absolute;width:12px;height:12px;border-radius:50%;
+  background:white;top:3px;left:3px;transition:transform .2s;
+}
+.toggle.on::after{transform:translateX(16px);}
+
+/* ── CHAT ── */
+.chat-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.chat-scroll{
+  flex:1;overflow-y:auto;padding:24px 28px;
+  display:flex;flex-direction:column;gap:20px;
+}
+.chat-scroll::-webkit-scrollbar{width:4px;}
+.chat-scroll::-webkit-scrollbar-thumb{background:var(--line2);border-radius:2px;}
+
+.empty-state{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;color:var(--c2);
+}
+.empty-icon{font-size:36px;margin-bottom:4px;}
+.empty-title{font-size:15px;font-weight:500;color:var(--c1);}
+.empty-sub{font-size:11px;font-family:'JetBrains Mono',monospace;}
+
+.msg-wrap{display:flex;flex-direction:column;gap:4px;max-width:840px;width:100%;}
+.msg-wrap.user{align-self:flex-end;align-items:flex-end;}
+.msg-wrap.assistant{align-self:flex-start;}
+.msg-meta{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--c2);padding:0 4px;}
+
+.bubble{padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word;}
+.bubble.user{
+  background:var(--purple2);border:1px solid rgba(139,120,248,.25);
+  border-radius:14px 14px 3px 14px;max-width:600px;
+}
+.bubble.user img{
+  display:block;max-width:280px;max-height:180px;border-radius:6px;
+  margin-top:8px;object-fit:contain;border:1px solid var(--line);
+}
+.bubble.assistant{
+  background:var(--bg2);border:1px solid var(--line);
+  border-radius:3px 14px 14px 14px;width:100%;
+}
+
+/* Think block */
+.think-block{background:var(--amber2);border:1px solid rgba(245,166,35,.2);border-radius:6px;margin-bottom:10px;overflow:hidden;}
+.think-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 10px;cursor:pointer;user-select:none;
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--amber);
+}
+.think-body{
+  padding:0 10px 10px;font-size:11px;font-family:'JetBrains Mono',monospace;
+  color:rgba(245,166,35,.7);white-space:pre-wrap;max-height:180px;overflow-y:auto;line-height:1.6;
+}
+.think-block.collapsed .think-body{display:none;}
+
+/* curl block */
+.curl-block{margin-top:10px;border:1px solid var(--line);border-radius:6px;overflow:hidden;}
+.curl-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--c2);
+  background:var(--bg1);border-bottom:1px solid var(--line);cursor:pointer;user-select:none;
+}
+.curl-header:hover{color:var(--c1);}
+.curl-body{
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blue);
+  padding:8px 10px;white-space:pre;overflow-x:auto;line-height:1.6;
+  max-height:160px;overflow-y:auto;background:var(--bg0);
+}
+.curl-block.collapsed .curl-body{display:none;}
+.copy-btn{
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  background:var(--bg2);border:1px solid var(--line);color:var(--c2);
+  padding:2px 7px;border-radius:4px;cursor:pointer;
+}
+.copy-btn:hover{color:var(--green);border-color:var(--green);}
+.response-text{font-size:14px;line-height:1.7;color:var(--c0);white-space:pre-wrap;}
+.cursor{
+  display:inline-block;width:2px;height:1em;background:var(--green);
+  animation:blink 1s step-end infinite;vertical-align:text-bottom;margin-left:1px;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ── INPUT AREA ── */
+.input-area{
+  border-top:1px solid var(--line);padding:10px 20px 14px;
+  background:var(--bg1);display:flex;flex-direction:column;gap:8px;flex-shrink:0;
+}
+.input-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.pill{font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 10px;border-radius:12px;white-space:nowrap;}
+.pill.green{background:var(--green2);border:1px solid rgba(0,200,150,.3);color:var(--green);}
+.pill.purple{background:var(--purple2);border:1px solid rgba(139,120,248,.25);color:var(--purple);}
+.pill.amber{background:var(--amber2);border:1px solid rgba(245,166,35,.25);color:var(--amber);}
+.tb-btn{
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  background:transparent;border:1px solid var(--line2);color:var(--c2);
+  padding:3px 10px;border-radius:5px;cursor:pointer;transition:all .15s;
+}
+.tb-btn:hover{border-color:var(--c1);color:var(--c1);}
+
+/* Image strip */
+.img-strip{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.img-thumb{position:relative;width:60px;height:60px;border-radius:6px;overflow:hidden;border:1px solid var(--line2);flex-shrink:0;}
+.img-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.remove-img{
+  position:absolute;top:2px;right:2px;background:rgba(0,0,0,.8);color:var(--red);
+  border:none;cursor:pointer;border-radius:3px;font-size:10px;line-height:1;padding:1px 4px;
+}
+.add-img-btn{
+  display:flex;align-items:center;justify-content:center;
+  width:60px;height:60px;border-radius:6px;border:1px dashed var(--line2);
+  background:transparent;color:var(--c2);font-size:22px;cursor:pointer;transition:all .15s;flex-shrink:0;
+}
+.add-img-btn:hover{border-color:var(--purple);color:var(--purple);background:var(--purple2);}
+
+textarea.sys-ta{
+  width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--c1);
+  padding:8px 12px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;
+  resize:none;outline:none;min-height:52px;max-height:100px;line-height:1.5;transition:border-color .2s;
+}
+textarea.sys-ta:focus{border-color:var(--green);}
+.input-row{display:flex;gap:10px;align-items:flex-end;}
+textarea#userInput{
+  flex:1;background:var(--bg2);border:1px solid var(--line);color:var(--c0);
+  padding:11px 14px;border-radius:8px;font-family:'Noto Sans Thai',sans-serif;font-size:14px;
+  resize:none;outline:none;min-height:48px;max-height:160px;line-height:1.55;transition:border-color .2s;
+}
+textarea#userInput:focus{border-color:var(--purple);}
+.send-btn{
+  background:var(--green);color:#000;border:none;padding:11px 22px;border-radius:8px;
+  cursor:pointer;font-weight:600;font-size:13px;font-family:'JetBrains Mono',monospace;
+  transition:opacity .2s;white-space:nowrap;flex-shrink:0;
+}
+.send-btn:hover{opacity:.85;}
+.send-btn:disabled{opacity:.35;cursor:not-allowed;}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+  background:var(--bg3);border:1px solid var(--line2);color:var(--c1);
+  padding:8px 18px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;
+  z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;
+}
+.toast.show{opacity:1;}
+.drop-overlay{
+  position:fixed;inset:0;background:rgba(0,200,150,.05);border:2px dashed var(--green);
+  z-index:100;display:none;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--green);pointer-events:none;
+}
+.drop-overlay.active{display:flex;}
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+
+<div class="drop-overlay" id="dropOverlay">วางรูปภาพที่นี่</div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="handleFiles(this.files)">
+
+<div class="topbar">
+  <span class="logo">◈ QWEN3.5</span>
+  <div class="vdiv"></div>
+  <div class="url-group">
+    <input class="url-input" type="text" id="serverUrl" placeholder="http://192.168.1.19:8081">
+    <button class="conn-btn" onclick="checkServer()">ping</button>
+    <div class="status-pill">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusLabel">—</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <button class="sm-btn" onclick="clearChat()">ล้าง chat</button>
+  </div>
+</div>
+
+<div class="body-layout">
+
+  <div class="sidebar">
+    <div class="sidebar-scroll">
+
+      <div class="sec-head">Presets</div>
+      <div style="margin-bottom:4px">
+        <div class="group-label">📷 Vision + Text</div>
+        <div id="presetVision"></div>
+      </div>
+      <div style="margin-bottom:16px">
+        <div class="group-label">💬 Text only</div>
+        <div id="presetText"></div>
+      </div>
+
+      <div class="sec-head">Parameters</div>
+      <div style="padding:0 4px">
+        <div class="param-row"><span class="param-lbl">temperature</span><span class="param-val" id="tempVal">0.7</span></div>
+        <input type="range" id="tempSlider" min="0" max="2" step="0.05" value="0.7" oninput="syncVal('tempVal',this.value,2)">
+
+        <div class="param-row"><span class="param-lbl">top_p</span><span class="param-val" id="toppVal">0.95</span></div>
+        <input type="range" id="toppSlider" min="0" max="1" step="0.01" value="0.95" oninput="syncVal('toppVal',this.value,2)">
+
+        <div class="param-row"><span class="param-lbl">top_k</span><span class="param-val" id="topkVal">20</span></div>
+        <input type="range" id="topkSlider" min="1" max="100" step="1" value="20" oninput="syncVal('topkVal',this.value,0)">
+
+        <div class="param-row"><span class="param-lbl">presence_penalty</span><span class="param-val" id="ppVal">0.00</span></div>
+        <input type="range" id="ppSlider" min="-2" max="2" step="0.05" value="0" oninput="syncVal('ppVal',this.value,2)">
+
+        <div class="param-row"><span class="param-lbl">max_tokens</span><span class="param-val" id="maxTokVal">10000</span></div>
+        <input type="range" id="maxTokSlider" min="256" max="16000" step="256" value="10000" oninput="syncVal('maxTokVal',this.value,0)">
+
+        <div class="toggle-row">
+          <span class="toggle-lbl" style="color:var(--amber)">⚡ enable_thinking</span>
+          <button class="toggle" id="thinkToggle" onclick="toggleThink()"></button>
+        </div>
+
+        <div class="sec-head" style="padding-top:4px">Output</div>
+        <div class="toggle-row">
+          <span class="toggle-lbl">Streaming</span>
+          <button class="toggle on" id="streamToggle" onclick="this.classList.toggle('on')"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-main">
+    <div class="chat-scroll" id="chatScroll">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">◈</div>
+        <div class="empty-title">Qwen3.5 · 27B</div>
+        <div class="empty-sub" style="margin-top:4px">โมเดลโหลดครั้งเดียว · parameters เปลี่ยนได้ทุก turn</div>
+        <div class="empty-sub" style="color:var(--purple);margin-top:6px">vision preset: drag-drop / paste / ปุ่ม + แนบรูป</div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-toolbar">
+        <span class="pill green" id="presetPill">— เลือก preset —</span>
+        <span class="pill purple hidden" id="visionPill">🖼 vision</span>
+        <span class="pill amber hidden" id="thinkPill">⚡ thinking</span>
+        <button class="tb-btn" onclick="toggleSysPrompt()">system prompt</button>
+      </div>
+      <div id="sysArea" class="hidden">
+        <textarea class="sys-ta" id="sysInput" placeholder="System prompt (เว้นว่าง = ใช้ default ของโมเดล)"></textarea>
+      </div>
+      <div class="img-strip hidden" id="imgStrip"></div>
+      <div class="input-row">
+        <textarea id="userInput"
+          placeholder="พิมพ์ข้อความ...  (Enter ส่ง · Shift+Enter ขึ้นบรรทัด)"
+          onkeydown="handleKey(event)" oninput="autoResize(this)" rows="1"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">ส่ง ↵</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   MODEL ID คงที่ตลอด — ไม่มีการเปลี่ยน slot → ไม่ reload
+   "Qwen3.5-27B" ตรงกับ [Qwen3.5-27B] ใน .ini
+════════════════════════════════════════════════════════════ */
+const MODEL_ID = 'Qwen3.5-27B';
+
+/* ── PRESETS (UI เท่านั้น — set parameters ไม่เปลี่ยน model) ── */
+const PRESETS = [
+  // vision
+  { label:'OCR / Receipt',       temp:0.4, top_p:0.5,  top_k:20, presence:0.0, thinking:false, vision:true  },
+  { label:'Thinking · Coding',     temp:0.6, top_p:0.95, top_k:20, presence:0.0, thinking:true,  vision:true  },
+  { label:'Thinking · General',    temp:1.0, top_p:0.95, top_k:20, presence:1.5, thinking:true,  vision:true  },
+  { label:'Instruct · General',    temp:0.7, top_p:0.8,  top_k:20, presence:1.5, thinking:false, vision:true  },
+  { label:'Instruct · Reasoning',  temp:1.0, top_p:0.95, top_k:20, presence:1.5, thinking:false, vision:true  },
+  // text-only
+  { label:'Thinking · Coding',     temp:0.6, top_p:0.95, top_k:20, presence:0.0, thinking:true,  vision:false },
+  { label:'Thinking · General',    temp:1.0, top_p:0.95, top_k:20, presence:1.5, thinking:true,  vision:false },
+  { label:'Instruct · General',    temp:0.7, top_p:0.8,  top_k:20, presence:1.5, thinking:false, vision:false },
+  { label:'Instruct · Reasoning',  temp:1.0, top_p:0.95, top_k:20, presence:1.5, thinking:false, vision:false },
+];
+
+// render preset buttons
+PRESETS.forEach((p, i) => {
+  const container = document.getElementById(p.vision ? 'presetVision' : 'presetText');
+  const btn = document.createElement('button');
+  btn.className = 'preset-btn';
+  btn.id = 'preset-' + i;
+  const badges = [];
+  if (p.thinking) badges.push('<span class="badge t">think</span>');
+  if (p.vision)   badges.push('<span class="badge v">vision</span>');
+  btn.innerHTML = `<span class="preset-name">${p.label}</span><span class="badges">${badges.join('')}</span>`;
+  btn.onclick = () => applyPreset(i);
+  container.appendChild(btn);
+});
+
+/* ════ STATE ════ */
+let activePreset   = null;
+let history        = [];
+let isStreaming    = false;
+let thinkOn        = false;
+let pendingImages  = [];
+
+/* ════ PRESET APPLY (ไม่เปลี่ยน model — แค่ set params) ════ */
+function applyPreset(i) {
+  const p = PRESETS[i];
+  activePreset = p;
+
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('preset-' + i).classList.add('active');
+  document.getElementById('presetPill').textContent = p.label;
+  document.getElementById('visionPill').classList.toggle('hidden', !p.vision);
+
+  setSlider('tempSlider',   'tempVal',   p.temp,     2);
+  setSlider('toppSlider',   'toppVal',   p.top_p,    2);
+  setSlider('topkSlider',   'topkVal',   p.top_k,    0);
+  setSlider('ppSlider',     'ppVal',     p.presence, 2);
+
+  thinkOn = p.thinking;
+  document.getElementById('thinkToggle').className = 'toggle' + (thinkOn ? ' on' : '');
+  document.getElementById('thinkPill').classList.toggle('hidden', !thinkOn);
+
+  if (p.vision) {
+    document.getElementById('imgStrip').classList.remove('hidden');
+    renderImgStrip();
+  } else {
+    document.getElementById('imgStrip').classList.add('hidden');
+    pendingImages = [];
+  }
+}
+
+function setSlider(sid, vid, val, dec) {
+  document.getElementById(sid).value = val;
+  document.getElementById(vid).textContent = parseFloat(val).toFixed(dec);
+}
+function syncVal(vid, val, dec) {
+  document.getElementById(vid).textContent = parseFloat(val).toFixed(dec);
+}
+
+/* ════ IMAGE ════ */
+function handleFiles(files) {
+  if (!activePreset?.vision) { showToast('เลือก vision preset ก่อนแนบรูป'); return; }
+  Array.from(files).forEach(file => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      pendingImages.push({ dataUrl: e.target.result, base64: e.target.result.split(',')[1], mediaType: file.type });
+      renderImgStrip();
+    };
+    reader.readAsDataURL(file);
+  });
+  document.getElementById('fileInput').value = '';
+}
+
+function renderImgStrip() {
+  const strip = document.getElementById('imgStrip');
+  strip.innerHTML = '';
+  if (activePreset?.vision) {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-img-btn';
+    addBtn.title = 'เพิ่มรูป (หรือลากวาง / Ctrl+V)';
+    addBtn.textContent = '+';
+    addBtn.onclick = () => document.getElementById('fileInput').click();
+    strip.appendChild(addBtn);
+  }
+  pendingImages.forEach((img, idx) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'img-thumb';
+    thumb.innerHTML = `<img src="${img.dataUrl}"><button class="remove-img" onclick="removeImg(${idx})">✕</button>`;
+    strip.appendChild(thumb);
+  });
+}
+function removeImg(idx) { pendingImages.splice(idx, 1); renderImgStrip(); }
+
+document.addEventListener('dragover', e => {
+  e.preventDefault();
+  if (activePreset?.vision) document.getElementById('dropOverlay').classList.add('active');
+});
+document.addEventListener('dragleave', e => {
+  if (!e.relatedTarget) document.getElementById('dropOverlay').classList.remove('active');
+});
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  document.getElementById('dropOverlay').classList.remove('active');
+  if (!activePreset?.vision) { showToast('เลือก vision preset ก่อนแนบรูป'); return; }
+  handleFiles(e.dataTransfer.files);
+});
+document.addEventListener('paste', e => {
+  if (!activePreset?.vision) return;
+  for (const item of (e.clipboardData?.items || []))
+    if (item.type.startsWith('image/')) handleFiles([item.getAsFile()]);
+});
+
+/* ════ TOGGLES ════ */
+function toggleThink() {
+  thinkOn = !thinkOn;
+  document.getElementById('thinkToggle').className = 'toggle' + (thinkOn ? ' on' : '');
+  document.getElementById('thinkPill').classList.toggle('hidden', !thinkOn);
+}
+function toggleSysPrompt() { document.getElementById('sysArea').classList.toggle('hidden'); }
+
+/* ════ SERVER ════ */
+// AUTO-DETECT: ถ้าเปิดจาก http://172.33.3.21:8081 → ใช้ origin เดิม ไม่ใช่ localhost
+(function () {
+  const inp = document.getElementById('serverUrl');
+  inp.value = location.protocol === 'file:'
+    ? 'http://localhost:8081'
+    : location.protocol + '//' + location.host;
+})();
+
+async function checkServer() {
+  const dot = document.getElementById('statusDot');
+  const lbl = document.getElementById('statusLabel');
+  dot.className = 'dot checking'; lbl.textContent = '...';
+  try {
+    const r = await fetch(getServerUrl() + '/v1/models', { signal: AbortSignal.timeout(6000) });
+    if (r.ok) { dot.className = 'dot ok'; lbl.textContent = 'online'; }
+    else throw new Error('HTTP ' + r.status);
+  } catch(e) { dot.className = 'dot err'; lbl.textContent = e.message || 'fail'; }
+}
+
+function getServerUrl() { return document.getElementById('serverUrl').value.replace(/\/$/, ''); }
+function getParams() {
+  return {
+    temperature:      parseFloat(document.getElementById('tempSlider').value),
+    top_p:            parseFloat(document.getElementById('toppSlider').value),
+    top_k:            parseInt(document.getElementById('topkSlider').value),
+    presence_penalty: parseFloat(document.getElementById('ppSlider').value),
+    max_tokens:       parseInt(document.getElementById('maxTokSlider').value),
+    stream:           document.getElementById('streamToggle').classList.contains('on'),
+  };
+}
+
+/* ════ HELPERS ════ */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 160) + 'px'; }
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function clearChat() {
+  history = [];
+  document.getElementById('chatScroll').innerHTML = `
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">◈</div>
+      <div class="empty-title">Qwen3.5 · 27B</div>
+      <div class="empty-sub" style="margin-top:4px">โมเดลโหลดครั้งเดียว · parameters เปลี่ยนได้ทุก turn</div>
+      <div class="empty-sub" style="color:var(--purple);margin-top:6px">vision preset: drag-drop / paste / ปุ่ม + แนบรูป</div>
+    </div>`;
+}
+
+/* ════ CURL BUILDER ════ */
+function buildCurl(serverUrl, body) {
+  const b = JSON.parse(JSON.stringify(body));
+  if (b.messages) {
+    b.messages = b.messages.map(m => ({
+      ...m,
+      content: Array.isArray(m.content)
+        ? m.content.map(c => c.type === 'image_url'
+            ? { type:'image_url', image_url:{ url:'data:<base64-image>' } } : c)
+        : m.content
+    }));
+  }
+  return `curl -s ${serverUrl}/v1/chat/completions \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(b, null, 2).replace(/'/g,"'\\''")}'`;
+}
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function copyText(id) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent)
+    .then(() => showToast('copied!'));
+}
+
+/* ════ SEND ════ */
+async function sendMessage() {
+  if (isStreaming) return;
+
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if (!text && pendingImages.length === 0) return;
+
+  const turnImages = [...pendingImages];
+  pendingImages = []; renderImgStrip();
+  input.value = ''; input.style.height = 'auto';
+
+  /* build content */
+  let userContent;
+  if (turnImages.length > 0) {
+    userContent = [];
+    turnImages.forEach(img => userContent.push({
+      type: 'image_url',
+      image_url: { url: `data:${img.mediaType};base64,${img.base64}` }
+    }));
+    if (text) userContent.push({ type:'text', text });
+  } else {
+    userContent = text;
+  }
+
+  /* show user bubble */
+  const empty = document.getElementById('emptyState');
+  if (empty) empty.remove();
+  const scroll = document.getElementById('chatScroll');
+  const userWrap = document.createElement('div');
+  userWrap.className = 'msg-wrap user';
+  const userBubble = document.createElement('div');
+  userBubble.className = 'bubble user';
+  if (text) { const p = document.createElement('div'); p.textContent = text; userBubble.appendChild(p); }
+  turnImages.forEach(img => { const im = document.createElement('img'); im.src = img.dataUrl; userBubble.appendChild(im); });
+  userWrap.appendChild(userBubble);
+  scroll.appendChild(userWrap);
+  scroll.scrollTop = scroll.scrollHeight;
+
+  history.push({ role:'user', content:userContent });
+
+  /* request body — MODEL_ID คงที่ ไม่มีการ reload */
+  const params = getParams();
+  const sysPrompt = document.getElementById('sysInput').value.trim();
+  const messages = [];
+  if (sysPrompt) messages.push({ role:'system', content:sysPrompt });
+  messages.push(...history);
+
+  const body = {
+    model:            MODEL_ID,          // ← ค่าเดิมทุกครั้ง "Qwen3.5-27B"
+    messages,
+    temperature:      params.temperature,
+    top_p:            params.top_p,
+    top_k:            params.top_k,
+    presence_penalty: params.presence_penalty,
+    max_tokens:       params.max_tokens,
+    stream:           params.stream,
+    chat_template_kwargs: { enable_thinking: thinkOn },
+  };
+
+  isStreaming = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  /* assistant bubble */
+  const aWrap = document.createElement('div');
+  aWrap.className = 'msg-wrap assistant';
+  const aMeta = document.createElement('div');
+  aMeta.className = 'msg-meta';
+  const presetLabel = activePreset ? activePreset.label : 'manual';
+  aMeta.textContent = `${presetLabel}  ·  model=${MODEL_ID}  ·  temp=${params.temperature.toFixed(2)}  top_p=${params.top_p.toFixed(2)}  pp=${params.presence_penalty.toFixed(2)}  ${thinkOn ? '⚡thinking' : ''}`;
+  aWrap.appendChild(aMeta);
+
+  const aBubble = document.createElement('div');
+  aBubble.className = 'bubble assistant';
+
+  const thinkDiv = document.createElement('div');
+  thinkDiv.className = 'think-block collapsed hidden';
+  thinkDiv.innerHTML = `<div class="think-header"><span>⚡ Thinking</span><span>▾ คลิกขยาย</span></div><div class="think-body"></div>`;
+  thinkDiv.querySelector('.think-header').onclick = () => thinkDiv.classList.toggle('collapsed');
+  aBubble.appendChild(thinkDiv);
+
+  const respDiv = document.createElement('div');
+  respDiv.className = 'response-text';
+  aBubble.appendChild(respDiv);
+
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor';
+  respDiv.appendChild(cursor);
+
+  aWrap.appendChild(aBubble);
+  scroll.appendChild(aWrap);
+  scroll.scrollTop = scroll.scrollHeight;
+
+  let fullResponse = '';
+  let thinkContent = '';
+  const serverUrl = getServerUrl();
+  
+  // 🔥 เริ่มจับเวลาตรงนี้
+  const startTime = performance.now();
+
+  try {
+    const response = await fetch(serverUrl + '/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      cursor.remove();
+      respDiv.textContent = '❌ HTTP ' + response.status + '\n' + err;
+      showToast('Error ' + response.status);
+    } else if (params.stream) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream:true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') break;
+          try {
+            const j = JSON.parse(data);
+            const delta = j.choices?.[0]?.delta;
+            if (!delta) continue;
+            if (delta.thinking) {
+              thinkContent += delta.thinking;
+              thinkDiv.classList.remove('hidden');
+              thinkDiv.querySelector('.think-body').textContent = thinkContent;
+            }
+            if (delta.content) {
+              fullResponse += delta.content;
+              const cleaned = fullResponse
+                .replace(/<think>[\s\S]*?<\/think>/g, '')
+                .replace(/<think>[\s\S]*/, '');
+              respDiv.textContent = cleaned;
+              respDiv.appendChild(cursor);
+            }
+          } catch {}
+        }
+        scroll.scrollTop = scroll.scrollHeight;
+      }
+      cursor.remove();
+    } else {
+      const j = await response.json();
+      const msg = j.choices?.[0]?.message;
+      if (msg?.thinking) {
+        thinkContent = msg.thinking;
+        thinkDiv.classList.remove('hidden');
+        thinkDiv.querySelector('.think-body').textContent = thinkContent;
+      }
+      fullResponse = msg?.content || '';
+      cursor.remove();
+    }
+
+    /* final render */
+    const cleaned = fullResponse.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    respDiv.textContent = cleaned || respDiv.textContent || '(ว่าง)';
+
+    if (!thinkContent) {
+      const m = fullResponse.match(/<think>([\s\S]*?)<\/think>/);
+      if (m) {
+        thinkContent = m[1];
+        thinkDiv.classList.remove('hidden');
+        thinkDiv.querySelector('.think-body').textContent = thinkContent;
+      }
+    }
+
+    history.push({ role:'assistant', content:fullResponse });
+    
+    // 🔥 คำนวณเวลาและนำไปใส่หลัง aMeta เดิมเมื่อทำงานสำเร็จ
+    const timeTaken = ((performance.now() - startTime) / 1000).toFixed(2);
+    aMeta.innerHTML += ` &nbsp;&middot;&nbsp; <span style="color:var(--green)">⏱️ ${timeTaken}s</span>`;
+
+  } catch(e) {
+    cursor.remove();
+    respDiv.textContent = '❌ ' + e.message;
+    showToast(e.message);
+  }
+
+  /* append curl block */
+  const curlStr = buildCurl(serverUrl, body);
+  const curlId = 'curl' + Date.now();
+  const curlBlock = document.createElement('div');
+  curlBlock.className = 'curl-block collapsed';
+  curlBlock.innerHTML = `
+    <div class="curl-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <span>📋 curl ที่ส่ง request นี้</span>
+      <button class="copy-btn" onclick="event.stopPropagation();copyText('${curlId}')">copy</button>
+    </div>
+    <div class="curl-body" id="${curlId}">${escHtml(curlStr)}</div>`;
+  aWrap.appendChild(curlBlock);
+
+  isStreaming = false;
+  document.getElementById('sendBtn').disabled = false;
+  scroll.scrollTop = scroll.scrollHeight;
+}
+
+/* ════ INIT ════ */
+window.addEventListener('load', () => {
+  checkServer();
+  applyPreset(0); // OCR/Receipt เป็น default
+});
+</script>
+</body>
+</html>
